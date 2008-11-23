@@ -144,7 +144,6 @@ public class Rygel.TrackerContainer : MediaContainer {
         child_count = this.get_children_count ();
 
         try {
-            /* critical ("info: category=%s",this.category); */
             children =
                 TrackerContainer.files.GetByServiceType (0,
                                                          this.category,
