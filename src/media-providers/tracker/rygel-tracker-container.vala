@@ -33,7 +33,9 @@ public class Rygel.TrackerContainer : MediaContainer {
     private const string TRACKER_PATH = "/org/freedesktop/Tracker";
     private const string TRACKER_IFACE = "org.freedesktop.Tracker";
     private const string FILES_PATH = "/org/freedesktop/Tracker/Files";
+    private const string FILES_IFACE = "org.freedesktop.Tracker.Files";
     private const string METADATA_PATH = "/org/freedesktop/Tracker/Metadata";
+    private const string FILES_IFACE = "org.freedesktop.Tracker.Metadata";
 
     public static dynamic DBus.Object metadata;
     public static dynamic DBus.Object files;
@@ -142,6 +144,7 @@ public class Rygel.TrackerContainer : MediaContainer {
         child_count = this.get_children_count ();
 
         try {
+            /* critical ("info: category=%s",this.category); */
             children =
                 TrackerContainer.files.GetByServiceType (0,
                                                          this.category,
