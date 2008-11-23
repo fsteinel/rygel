@@ -287,6 +287,10 @@ public class Rygel.MediaServer: RootDevice {
         }
 
         string user_name = Environment.get_real_name();
+	if (user_name == "Unknown") {
+	   warning ("Environment.get_real_name returned Unknown");
+	   user_name = Environment.get_user_name();
+	}
         default_value = "%s's MediaServer".printf (user_name);
         str = get_str_from_gconf (gconf_client,
                                   GCONF_PATH + "friendly-name",
