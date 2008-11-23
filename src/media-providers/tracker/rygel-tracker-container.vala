@@ -35,7 +35,7 @@ public class Rygel.TrackerContainer : MediaContainer {
     private const string FILES_PATH = "/org/freedesktop/Tracker/Files";
     private const string FILES_IFACE = "org.freedesktop.Tracker.Files";
     private const string METADATA_PATH = "/org/freedesktop/Tracker/Metadata";
-    private const string FILES_IFACE = "org.freedesktop.Tracker.Metadata";
+    private const string METADATA_IFACE = "org.freedesktop.Tracker.Metadata";
 
     public static dynamic DBus.Object metadata;
     public static dynamic DBus.Object files;
@@ -63,11 +63,11 @@ public class Rygel.TrackerContainer : MediaContainer {
         TrackerContainer.metadata =
                     connection.get_object (TrackerContainer.TRACKER_SERVICE,
                                            TrackerContainer.METADATA_PATH,
-                                           TrackerContainer.TRACKER_IFACE);
+                                           TrackerContainer.METADATA_IFACE);
         TrackerContainer.files =
                     connection.get_object (TrackerContainer.TRACKER_SERVICE,
                                            TrackerContainer.FILES_PATH,
-                                           TrackerContainer.TRACKER_IFACE);
+                                           TrackerContainer.FILES_IFACE);
         TrackerContainer.tracker =
                     connection.get_object (TrackerContainer.TRACKER_SERVICE,
                                            TrackerContainer.TRACKER_PATH,
