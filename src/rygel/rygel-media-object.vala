@@ -24,29 +24,14 @@
 
 using GUPnP;
 
-public class Rygel.MediaReceiverRegistrar: Service {
+/**
+ * Represents a media object (container and item). Subclasses should implement
+ * the abstract serialize method.
+ */
+public abstract class Rygel.MediaObject {
+    public string id;
+    public string parent_id;
+    public string title;
 
-    public override void constructed () {
-        this.action_invoked["IsAuthorized"] += this.is_authorized_cb;
-        this.action_invoked["IsValidated"] += this.is_authorized_cb;
-        this.action_invoked["RegisterDevice"] += this.register_device_cb;
-    }
-
-    /* IsAuthorized and IsValided action implementations (fake) */
-    private void is_authorized_cb (MediaReceiverRegistrar registrar,
-                                   ServiceAction          action) {
-        action.set ("Result", typeof (int), 1);
-
-        action.return ();
-    }
-
-    private void register_device_cb (MediaReceiverRegistrar registrar,
-                                     ServiceAction          action) {
-        action.set ("RegistrationRespMsg",
-                    typeof (string),
-                    "WhatisSupposedToBeHere");
-
-        action.return ();
-    }
+    public abstract void serialize (DIDLLiteWriter didl_writer);
 }
-

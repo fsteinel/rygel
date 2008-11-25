@@ -27,7 +27,15 @@
 using GLib;
 using GUPnP;
 
+/**
+ * Basic implementation of UPnP ConnectionManager service version 2.
+ */
 public class Rygel.ConnectionManager : Service {
+    public const string UPNP_ID = "urn:upnp-org:serviceId:ConnectionManager";
+    public const string UPNP_TYPE =
+                    "urn:schemas-upnp-org:service:ConnectionManager:2";
+    public const string DESCRIPTION_PATH = "xml/ConnectionManager.xml";
+
     private string source_protocol_info;
     private string sink_protocol_info;
     private string connection_ids;

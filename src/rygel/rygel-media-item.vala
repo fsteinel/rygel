@@ -24,6 +24,10 @@
 
 using GUPnP;
 
+/**
+ * Represents a media (Music, Video and Image) item. Provides basic
+ * serialization (to DIDLLiteWriter) implementation.
+ */
 public class Rygel.MediaItem : MediaObject {
     public static const string IMAGE_CLASS = "object.item.imageItem";
     public static const string VIDEO_CLASS = "object.item.videoItem";
@@ -119,6 +123,11 @@ public class Rygel.MediaItem : MediaObject {
         res.protocol = "http-get";
         res.mime_type = mime;
         res.dlna_profile = "MP3"; /* FIXME */
+        res.dlna_operation = GUPnP.DLNAOperation.RANGE;
+        res.dlna_flags = GUPnP.DLNAFlags.STREAMING_TRANSFER_MODE |
+                         GUPnP.DLNAFlags.BACKGROUND_TRANSFER_MODE |
+                         GUPnP.DLNAFlags.CONNECTION_STALL |
+                         GUPnP.DLNAFlags.DLNA_V15;
 
         res.width = width;
         res.height = height;

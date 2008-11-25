@@ -27,6 +27,9 @@ using Rygel;
 using GUPnP;
 using DBus;
 
+/**
+ * Represents Tracker category.
+ */
 public class Rygel.TrackerContainer : MediaContainer {
     /* class-wide constants */
     private const string TRACKER_SERVICE = "org.freedesktop.Tracker";
@@ -46,9 +49,6 @@ public class Rygel.TrackerContainer : MediaContainer {
 
     /* UPnP class of items under this container */
     public string child_class;
-
-    // FIXME: We should not need this
-    private string root_id;
 
     // Class constructor
     static construct {
@@ -76,14 +76,12 @@ public class Rygel.TrackerContainer : MediaContainer {
 
     public TrackerContainer (string  id,
                              string  parent_id,
-                             string  root_id,
                              string  title,
                              string  category,
                              string  child_class,
                              Context context) {
         this.id = id;
         this.parent_id = parent_id;
-        this.root_id = root_id;
         this.title = title;
         this.category = category;
         this.child_class = child_class;
@@ -163,15 +161,15 @@ public class Rygel.TrackerContainer : MediaContainer {
         MediaItem item;
 
         if (this.child_class == MediaItem.VIDEO_CLASS) {
-            item = new TrackerVideoItem (this.root_id + ":" + path,
+            item = new TrackerVideoItem (path,
                                          path,
                                          this);
         } else if (this.child_class == MediaItem.IMAGE_CLASS) {
-            item = new TrackerImageItem (this.root_id + ":" + path,
+            item = new TrackerImageItem (path,
                                          path,
                                          this);
         } else {
-            item = new TrackerMusicItem (this.root_id + ":" + path,
+            item = new TrackerMusicItem (path,
                                          path,
                                          this);
         }
@@ -179,14 +177,6 @@ public class Rygel.TrackerContainer : MediaContainer {
         item.serialize (didl_writer);
 
         return true;
-    }
-
-    private string uri_from_path (string path) {
-        string escaped_path = Uri.escape_string (path, "/", true);
-
-        return "http://%s:%u%s".printf (this.context.host_ip,
-                                        this.context.port,
-                                        escaped_path);
     }
 
     public static string get_file_category (string uri) throws GLib.Error {

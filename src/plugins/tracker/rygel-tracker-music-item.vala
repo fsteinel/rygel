@@ -27,18 +27,23 @@ using Rygel;
 using GUPnP;
 using DBus;
 
-public class Rygel.TrackerVideoItem : TrackerItem {
-    public TrackerVideoItem (string              id,
+/**
+ * Represents Tracker music item.
+ */
+public class Rygel.TrackerMusicItem : TrackerItem {
+    public TrackerMusicItem (string              id,
                              string              path,
                              TrackerContainer    parent) {
         base (id, path, parent);
 
         keys = new string[] {"File:Name",
                              "File:Mime",
-                             "Video:Title",
-                             "Video:Author",
-                             "Video:Width",
-                             "Video:Height",
+                             "Audio:Title",
+                             "Audio:Artist",
+                             "Audio:TrackNo",
+                             "Audio:Album",
+                             "Audio:ReleaseDate",
+                             "Audio:DateAdded",
                              "DC:Date"};
     }
 
@@ -63,14 +68,19 @@ public class Rygel.TrackerVideoItem : TrackerItem {
             this.title = values[0];
 
         if (values[4] != "")
-            this.width = values[4].to_int ();
+            this.track_number = values[4].to_int ();
 
-        if (values[5] != "")
-            this.height = values[5].to_int ();
+        if (values[8] != "") {
+            this.date = seconds_to_iso8601 (values[8]);
+        } else if (values[6] != "") {
+            this.date = seconds_to_iso8601 (values[6]);
+        } else {
+            this.date = seconds_to_iso8601 (values[7]);
+        }
 
-        this.date = this.seconds_to_iso8601 (values[6]);
         this.mime = values[1];
         this.author = values[3];
+        this.album = values[5];
         this.uri = this.uri_from_path (path);
 
         base.serialize (didl_writer);
