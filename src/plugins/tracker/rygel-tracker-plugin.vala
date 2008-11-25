@@ -23,13 +23,19 @@
  */
 
 using Rygel;
+using Gee;
 
 [ModuleInit]
-public MediaProvider register_media_provider (string        root_id,
-                                              string        root_parent_id,
-                                              GUPnP.Context context) {
-    return new MediaTracker (root_id,
-                             root_parent_id,
-                             context);
+public Plugin load_plugin () {
+    Plugin plugin = new Plugin ("Tracker");
+
+    // We only implement a ContentDirectory service
+    var resource_info = new ResourceInfo (ContentDirectory.UPNP_ID,
+                                          ContentDirectory.UPNP_TYPE,
+                                          ContentDirectory.DESCRIPTION_PATH,
+                                          typeof (MediaTracker));
+    plugin.add_resource (resource_info);
+
+    return plugin;
 }
 

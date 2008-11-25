@@ -1,3 +1,3 @@
-SUBDIRS = media-server media-providers
+SUBDIRS = rygel plugins
 
 MAINTAINERCLEANFILES = Makefile.in

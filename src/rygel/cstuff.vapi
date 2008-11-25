@@ -1,7 +1,7 @@
 /*
- * Copyright (C) 2008 Zeeshan Ali.
+ * Copyright (C) 2008 Zeeshan Ali (Khattak).
  *
- * Author: Zeeshan Ali <zeenix@gstreamer.net>
+ * Author: Zeeshan Ali (Khattak) <zeeshanak@gnome.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,13 @@
  * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
 
+/**
+ * Glue's our C code to Vala world.
+ */
 namespace CStuff {
+    /**
+     * Holds constants defined by build system.
+     */
     class BuildConfig {
         [CCode (cname = "DATA_DIR")]
         public static const string DATA_DIR;
@@ -27,6 +33,9 @@ namespace CStuff {
         public static const string PLUGIN_DIR;
     }
 
+    /**
+     * Provides utility functions implemented in C.
+     */
     public class Utils {
         [CCode (cname = "get_xml_element")]
         public static weak Xml.Node * get_xml_element (Xml.Node node,

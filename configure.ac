@@ -1,7 +1,7 @@
 AC_PREREQ(2.53)
 AC_INIT(rygel, 0.1, http://live.gnome.org/Rygel)
 AM_INIT_AUTOMAKE()
-AC_CONFIG_SRCDIR(src/media-server/rygel-media-server.vala)
+AC_CONFIG_SRCDIR(src/rygel/rygel-media-server.vala)
 AM_CONFIG_HEADER(config.h)
 AM_MAINTAINER_MODE
 
@@ -14,13 +14,14 @@ AC_STDC_HEADERS
 AC_PROG_LIBTOOL
 AC_FUNC_MMAP
 
-VALA_REQUIRED=0.3.4
+VALA_REQUIRED=0.5.2
 GUPNP_REQUIRED=0.6
 GUPNP_AV_REQUIRED=0.1
 GCONF_REQUIRED=2.22
 DBUS_GLIB_REQUIRED=0.74
 GSTREAMER_REQUIRED=0.10.18
 GIO_REQUIRED=2.16
+GEE_REQUIRED=0.1.3
 
 PKG_CHECK_MODULES(VALA, [vala-1.0 >= $VALA_REQUIRED])
 PKG_CHECK_MODULES(LIBGUPNP, gupnp-1.0 >= $GUPNP_REQUIRED)
@@ -29,6 +30,7 @@ PKG_CHECK_MODULES(LIBGCONF, gconf-2.0 >= $GCONF_REQUIRED)
 PKG_CHECK_MODULES(LIBDBUS_GLIB, dbus-glib-1 >= $DBUS_GLIB_REQUIRED)
 PKG_CHECK_MODULES(LIBGSTREAMER, gstreamer-0.10 >= $GSTREAMER_REQUIRED)
 PKG_CHECK_MODULES(LIBGIO, gio-2.0 >= $GIO_REQUIRED)
+PKG_CHECK_MODULES(GEE, gee-1.0 >= $GEE_REQUIRED)
 
 # Vala compiler
 # This is more to get the path of the compiler since the pkg-config check
@@ -65,6 +67,10 @@ AC_CHECK_FILE("${VAPIDIR}/gstreamer-0.10.vapi",
 AC_CHECK_FILE("${VAPIDIR}/gio-2.0.vapi",
         true,
         [AC_MSG_ERROR("Unable to find Vala bindings for gio-2.0")])
+
+AC_CHECK_FILE("${VAPIDIR}/gee-1.0.vapi",
+        true,
+        [AC_MSG_ERROR("Unable to find Vala bindings for gee-1.0")])
 
 # glib-genmarshal
 GLIB_GENMARSHAL=`pkg-config --variable=glib_genmarshal glib-2.0`
@@ -111,9 +117,9 @@ AM_GLIB_DEFINE_LOCALEDIR([LOCALEDIR])
 AC_OUTPUT([
 Makefile
 src/Makefile
-src/media-server/Makefile
-src/media-providers/Makefile
-src/media-providers/tracker/Makefile
+src/rygel/Makefile
+src/plugins/Makefile
+src/plugins/tracker/Makefile
 data/Makefile
 data/xml/Makefile
 ])
