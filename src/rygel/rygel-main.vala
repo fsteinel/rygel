@@ -32,38 +32,70 @@ public class Rygel.Main : Object {
     private MediaServerFactory ms_factory;
     private List<MediaServer> media_servers;
 
-    public Main () {
+    private MainLoop main_loop;
+
+    private int exit_code;
+
+    public Main () throws GLib.Error {
         this.media_servers = new List<MediaServer> ();
         this.plugin_loader = new PluginLoader ();
         this.ms_factory = new MediaServerFactory ();
+        this.main_loop = new GLib.MainLoop (null, false);
+
+        this.exit_code = 0;
 
         this.plugin_loader.plugin_available += this.on_plugin_loaded;
+
+        Utils.on_application_exit (this.application_exit_cb);
     }
 
-    public void run () {
+    public int run () {
         this.plugin_loader.load_plugins ();
 
-        var main_loop = new GLib.MainLoop (null, false);
-        main_loop.run ();
+        this.main_loop.run ();
+
+        return this.exit_code;
+    }
+
+    public void exit (int exit_code) {
+        this.exit_code = exit_code;
+        this.main_loop.quit ();
+    }
+
+    private void application_exit_cb () {
+        this.exit (0);
     }
 
     private void on_plugin_loaded (PluginLoader plugin_loader,
                                    Plugin       plugin) {
-        var server = this.ms_factory.create_media_server (plugin);
+        try {
+            var server = this.ms_factory.create_media_server (plugin);
 
-        /* Make our device available */
-        server.available = true;
+            /* Make our device available */
+            server.available = true;
 
-        media_servers.append (server);
+            media_servers.append (server);
+        } catch (GLib.Error error) {
+            warning ("Failed to create MediaServer for %s. Reason: %s\n",
+                     plugin.name,
+                     error.message);
+        }
     }
 
     public static int main (string[] args) {
         Main main;
 
-        main = new Main ();
-        main.run ();
+        try {
+            main = new Main ();
+        } catch (GLib.Error err) {
+            error ("%s", err.message);
 
-        return 0;
+            return -1;
+        }
+
+        int exit_code = main.run ();
+
+        return exit_code;
     }
 }
 

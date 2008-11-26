@@ -45,8 +45,9 @@ public class Rygel.ContentDirectory: Service {
     public const string DESCRIPTION_PATH = "xml/ContentDirectory.xml";
 
     protected uint32 system_update_id;
-
-    string feature_list;
+    protected string feature_list;
+    protected string search_caps;
+    protected string sort_caps;
 
     DIDLLiteWriter didl_writer;
 
@@ -76,7 +77,6 @@ public class Rygel.ContentDirectory: Service {
         this.didl_writer = new DIDLLiteWriter ();
 
         this.system_update_id = 0;
-
         this.feature_list =
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
             "<Features xmlns=\"urn:schemas-upnp-org:av:avs\" " +
@@ -84,6 +84,8 @@ public class Rygel.ContentDirectory: Service {
             "xsi:schemaLocation=\"urn:schemas-upnp-org:av:avs" +
             "http://www.upnp.org/schemas/av/avs-v1-20060531.xsd\">" +
             "</Features>";
+        this.search_caps = "";
+        this.sort_caps = "";
 
         this.action_invoked["Browse"] += this.browse_cb;
 
@@ -110,8 +112,8 @@ public class Rygel.ContentDirectory: Service {
     }
 
     /* Browse action implementation */
-    private void browse_cb (ContentDirectory content_dir,
-                            ServiceAction    action) {
+    protected virtual void browse_cb (ContentDirectory content_dir,
+                                      ServiceAction    action) {
         string object_id, browse_flag;
         bool browse_metadata;
         string sort_criteria, filter;
@@ -209,8 +211,8 @@ public class Rygel.ContentDirectory: Service {
 
     /* Query GetSystemUpdateID */
     private void query_system_update_id (ContentDirectory content_dir,
-                                         string variable,
-                                         ref GLib.Value value) {
+                                         string           variable,
+                                         ref GLib.Value   value) {
         /* Set action return arguments */
         value.init (typeof (uint32));
         value.set_uint (this.system_update_id);
@@ -220,36 +222,36 @@ public class Rygel.ContentDirectory: Service {
     private void get_search_capabilities_cb (ContentDirectory content_dir,
                                              ServiceAction    action) {
         /* Set action return arguments */
-        action.set ("SearchCaps", typeof (string), "");
+        action.set ("SearchCaps", typeof (string), this.search_caps);
 
         action.return ();
     }
 
     /* Query SearchCapabilities */
     private void query_search_capabilities (ContentDirectory content_dir,
-                                            string variable,
-                                            ref GLib.Value value) {
+                                            string           variable,
+                                            ref GLib.Value   value) {
         /* Set action return arguments */
         value.init (typeof (string));
-        value.set_string ("");
+        value.set_string (this.search_caps);
     }
 
     /* action GetSortCapabilities implementation */
     private void get_sort_capabilities_cb (ContentDirectory content_dir,
                                            ServiceAction    action) {
         /* Set action return arguments */
-        action.set ("SortCaps", typeof (string), "");
+        action.set ("SortCaps", typeof (string), this.sort_caps);
 
         action.return ();
     }
 
     /* Query SortCapabilities */
     private void query_sort_capabilities (ContentDirectory content_dir,
-                                          string variable,
-                                          ref GLib.Value value) {
+                                          string           variable,
+                                          ref GLib.Value   value) {
         /* Set action return arguments */
         value.init (typeof (string));
-        value.set_string ("");
+        value.set_string (this.sort_caps);
     }
 
     /* action GetFeatureList implementation */
@@ -263,8 +265,8 @@ public class Rygel.ContentDirectory: Service {
 
     /* Query FeatureList */
     private void query_feature_list (ContentDirectory content_dir,
-                                     string variable,
-                                     ref GLib.Value value) {
+                                     string           variable,
+                                     ref GLib.Value   value) {
         /* Set action return arguments */
         value.init (typeof (string));
         value.set_string (this.feature_list);
