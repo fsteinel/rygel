@@ -24,6 +24,10 @@
 
 using GUPnP;
 
+public errordomain Rygel.MediaItemError {
+    UNKNOWN_URI_TYPE
+}
+
 /**
  * Represents a media (Music, Video and Image) item. Provides basic
  * serialization (to DIDLLiteWriter) implementation.
@@ -31,30 +35,36 @@ using GUPnP;
 public class Rygel.MediaItem : MediaObject {
     public static const string IMAGE_CLASS = "object.item.imageItem";
     public static const string VIDEO_CLASS = "object.item.videoItem";
+    public static const string AUDIO_CLASS = "object.item.audioItem";
     public static const string MUSIC_CLASS = "object.item.audioItem.musicTrack";
 
-    public string mime;
     public string author;
     public string album;
     public string date;
     public string upnp_class;
-    public string uri;
 
-    public int width = -1;
-    public int height = -1;
+    public DIDLLiteResource res;
+
     public int track_number = -1;
 
-    public MediaItem (string id,
-                      string parent_id,
-                      string title,
-                      string upnp_class) {
+    protected Rygel.Streamer streamer;
+
+    public MediaItem (string   id,
+                      string   parent_id,
+                      string   title,
+                      string   upnp_class,
+                      Streamer streamer) {
         this.id = id;
         this.parent_id = parent_id;
         this.title = title;
         this.upnp_class = upnp_class;
+        this.streamer = streamer;
+
+        this.res = DIDLLiteResource ();
+        this.res.reset ();
     }
 
-    public override void serialize (DIDLLiteWriter didl_writer) {
+    public override void serialize (DIDLLiteWriter didl_writer) throws Error {
         didl_writer.start_item (this.id,
                                 this.parent_id,
                                 null,
@@ -112,29 +122,59 @@ public class Rygel.MediaItem : MediaObject {
         }
 
         /* Add resource data */
-        DIDLLiteResource res = DIDLLiteResource ();
-
-        res.reset ();
-
-        /* URI */
-        res.uri = uri;
-
         /* Protocol info */
-        res.protocol = "http-get";
-        res.mime_type = mime;
-        res.dlna_profile = "MP3"; /* FIXME */
-        res.dlna_operation = GUPnP.DLNAOperation.RANGE;
-        res.dlna_flags = GUPnP.DLNAFlags.STREAMING_TRANSFER_MODE |
+        string protocol = get_protocol_for_uri (this.res.uri);
+        this.res.protocol = protocol;
+        this.res.dlna_profile = "MP3"; /* FIXME */
+        this.res.dlna_operation = GUPnP.DLNAOperation.RANGE;
+        this.res.dlna_flags = GUPnP.DLNAFlags.STREAMING_TRANSFER_MODE |
                          GUPnP.DLNAFlags.BACKGROUND_TRANSFER_MODE |
                          GUPnP.DLNAFlags.CONNECTION_STALL |
                          GUPnP.DLNAFlags.DLNA_V15;
 
-        res.width = width;
-        res.height = height;
+        /* Now get the transcoded/proxy URIs */
+        var res_list = this.get_transcoded_resources (res);
+        foreach (DIDLLiteResource trans_res in res_list) {
+            didl_writer.add_res (trans_res);
+        }
 
+        /* Add the original res in the end */
         didl_writer.add_res (res);
 
         /* End of item */
         didl_writer.end_item ();
+    }
+
+    private string get_protocol_for_uri (string uri) throws Error {
+        if (uri.has_prefix ("http")) {
+            return "http-get";
+        } else if (uri.has_prefix ("file")) {
+            return "internal";
+        } else if (uri.has_prefix ("rtsp")) {
+            // FIXME: Assuming that RTSP is always accompanied with RTP over UDP
+            return "rtsp-rtp-udp";
+        } else {
+            throw new MediaItemError.UNKNOWN_URI_TYPE
+                            ("Failed to probe protocol for URI %s", uri);
+        }
+    }
+
+    // FIXME: We only proxy URIs through our HTTP server for now
+    private List<DIDLLiteResource?>? get_transcoded_resources
+                                            (DIDLLiteResource orig_res) {
+        if (orig_res.protocol == "http-get")
+            return null;
+
+        List<DIDLLiteResource?> resources = new List<DIDLLiteResource?> ();
+        // Copy the original res first
+        DIDLLiteResource res = orig_res;
+
+        // Then modify the URI and protocol
+        res.uri = this.streamer.create_http_uri_for_item (this);
+        res.protocol = "http-get";
+
+        resources.append (res);
+
+        return resources;
     }
 }

@@ -44,7 +44,7 @@ public class Rygel.TrackerContainer : MediaContainer {
     public static dynamic DBus.Object files;
     public static dynamic DBus.Object tracker;
 
-    public Context context;
+    public Streamer streamer;
     public string category;
 
     /* UPnP class of items under this container */
@@ -79,16 +79,16 @@ public class Rygel.TrackerContainer : MediaContainer {
                              string  title,
                              string  category,
                              string  child_class,
-                             Context context) {
-        this.id = id;
-        this.parent_id = parent_id;
-        this.title = title;
+                             Streamer streamer) {
+        base (id, parent_id, title, 0);
+
         this.category = category;
         this.child_class = child_class;
-        this.context = context;
+        this.streamer = streamer;
     }
 
-    public override void serialize (DIDLLiteWriter didl_writer) {
+    public override void serialize (DIDLLiteWriter didl_writer)
+                                    throws GLib.Error {
         /* Update the child count */
         this.child_count = this.get_children_count ();
 
@@ -158,23 +158,27 @@ public class Rygel.TrackerContainer : MediaContainer {
 
     public bool add_item_from_db (DIDLLiteWriter didl_writer,
                                    string         path) {
-        MediaItem item;
+        MediaItem item = null;
 
-        if (this.child_class == MediaItem.VIDEO_CLASS) {
-            item = new TrackerVideoItem (path,
-                                         path,
-                                         this);
-        } else if (this.child_class == MediaItem.IMAGE_CLASS) {
-            item = new TrackerImageItem (path,
-                                         path,
-                                         this);
-        } else {
-            item = new TrackerMusicItem (path,
-                                         path,
-                                         this);
+        try {
+            item = this.get_item_from_db (path);
+        } catch (GLib.Error error) {
+            critical ("Failed to fetch item %s. Reason: %s",
+                      item.id,
+                      error.message);
+
+            return false;
         }
 
-        item.serialize (didl_writer);
+        try {
+            item.serialize (didl_writer);
+        } catch (GLib.Error error) {
+            critical ("Failed to serialize item %s. Reason: %s",
+                      item.id,
+                      error.message);
+
+            return false;
+        }
 
         return true;
     }
@@ -185,6 +189,20 @@ public class Rygel.TrackerContainer : MediaContainer {
         category = TrackerContainer.files.GetServiceType (uri);
 
         return category;
+    }
+
+    public MediaItem get_item_from_db (string path) throws GLib.Error {
+        MediaItem item;
+
+        if (this.child_class == MediaItem.VIDEO_CLASS) {
+            item = new TrackerVideoItem (path, path, this);
+        } else if (this.child_class == MediaItem.IMAGE_CLASS) {
+            item = new TrackerImageItem (path, path, this);
+        } else {
+            item = new TrackerMusicItem (path, path, this);
+        }
+
+        return item;
     }
 }
 

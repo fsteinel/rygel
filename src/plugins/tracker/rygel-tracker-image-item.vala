@@ -31,60 +31,71 @@ using DBus;
  * Represents Tracker image item.
  */
 public class Rygel.TrackerImageItem : TrackerItem {
-    public TrackerImageItem (string              id,
-                             string              path,
-                             TrackerContainer    parent) {
-        base (id, path, parent);
-
-        keys = new string[] {"File:Name",
-                             "File:Mime",
-                             "Image:Title",
-                             "Image:Creator",
-                             "Image:Width",
-                             "Image:Height",
-                             "Image:Album",
-                             "Image:Date",
-                             "DC:Date"};
+    private enum Metadata {
+        FILE_NAME,
+        MIME,
+        SIZE,
+        TITLE,
+        CREATOR,
+        WIDTH,
+        HEIGHT,
+        ALBUM,
+        IMAGE_DATE,
+        DATE,
+        LAST_KEY
     }
 
-    public override void serialize (DIDLLiteWriter didl_writer) {
+    public TrackerImageItem (string              id,
+                             string              path,
+                             TrackerContainer    parent) throws GLib.Error {
+        base (id, path, parent);
+    }
+
+    public override void fetch_metadata () throws GLib.Error {
+        string[] keys = new string[Metadata.LAST_KEY];
+        keys[Metadata.FILE_NAME] = "File:Name";
+        keys[Metadata.MIME] = "File:Mime";
+        keys[Metadata.SIZE] = "File:Size";
+        keys[Metadata.TITLE] = "Video:Title";
+        keys[Metadata.CREATOR] = "Image:Creator";
+        keys[Metadata.WIDTH] = "Image:Width";
+        keys[Metadata.HEIGHT] = "Image:Height";
+        keys[Metadata.ALBUM] = "Image:Album";
+        keys[Metadata.IMAGE_DATE] = "Image:Date";
+        keys[Metadata.DATE] = "DC:Date";
         string[] values = null;
 
         /* TODO: make this async */
-        try {
-            values = this.parent.metadata.Get (parent.category, path, keys);
-        } catch (GLib.Error error) {
-            critical ("failed to get metadata for %s: %s\n",
-                      path,
-                      error.message);
+        values = this.parent.metadata.Get (parent.category, path, keys);
 
-            return;
-        }
-
-        if (values[2] != "")
-            this.title = values[2];
+        if (values[Metadata.TITLE] != "")
+            this.title = values[Metadata.TITLE];
         else
             /* If title wasn't provided, use filename instead */
-            this.title = values[0];
+            this.title = values[Metadata.FILE_NAME];
 
-        if (values[4] != "")
-            this.width = values[4].to_int ();
+        if (values[Metadata.SIZE] != "")
+            this.res.size = values[Metadata.SIZE].to_int ();
 
-        if (values[5] != "")
-            this.height = values[5].to_int ();
+        if (values[Metadata.WIDTH] != "")
+            this.res.width = values[Metadata.WIDTH].to_int ();
 
-        if (values[8] != "") {
-            this.date = seconds_to_iso8601 (values[8]);
+        if (values[Metadata.HEIGHT] != "")
+            this.res.height = values[Metadata.HEIGHT].to_int ();
+
+        if (values[Metadata.SIZE] != "")
+            this.res.size = values[Metadata.SIZE].to_int ();
+
+        if (values[Metadata.DATE] != "") {
+            this.date = seconds_to_iso8601 (values[Metadata.DATE]);
         } else {
-            this.date = seconds_to_iso8601 (values[7]);
+            this.date = seconds_to_iso8601 (values[Metadata.IMAGE_DATE]);
         }
 
-        this.mime = values[1];
-        this.author = values[3];
-        this.album = values[6];
-        this.uri = this.uri_from_path (path);
-
-        base.serialize (didl_writer);
+        this.res.mime_type = values[Metadata.MIME];
+        this.author = values[Metadata.CREATOR];
+        this.album = values[Metadata.ALBUM];
+        this.res.uri = this.uri_from_path (path);
     }
 }
 

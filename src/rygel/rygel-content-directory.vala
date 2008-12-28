@@ -30,7 +30,23 @@ using GUPnP;
  * Errors used by ContentDirectory and deriving classes.
  */
 public errordomain Rygel.ContentDirectoryError {
-    NO_SUCH_OBJECT = 701
+    NO_SUCH_OBJECT = 701,
+    INVALID_ARGS = 402
+}
+
+public class BrowseArgs {
+    // In arguments
+    public string object_id;
+    public string browse_flag;
+    public string filter;
+    public uint   index;           // Starting index
+    public uint   requested_count;
+    public string sort_criteria;
+
+    // Out arguments
+    public uint   number_returned;
+    public uint   total_matches;
+    public uint   update_id;
 }
 
 /**
@@ -45,38 +61,37 @@ public class Rygel.ContentDirectory: Service {
     public const string DESCRIPTION_PATH = "xml/ContentDirectory.xml";
 
     protected uint32 system_update_id;
+    protected string feature_list;
+    protected string search_caps;
+    protected string sort_caps;
 
-    string feature_list;
+    protected MediaContainer root_container;
 
     DIDLLiteWriter didl_writer;
 
     // Public abstract methods derived classes need to implement
-    public virtual void add_children_metadata
-                            (DIDLLiteWriter didl_writer,
-                             string         container_id,
-                             string         filter,
-                             uint           starting_index,
-                             uint           requested_count,
-                             string         sort_criteria,
-                             out uint       number_returned,
-                             out uint       total_matches,
-                             out uint       update_id) throws Error {
+    public virtual void add_children_metadata (DIDLLiteWriter didl_writer,
+                                               BrowseArgs     args)
+                                               throws Error {
         throw new ServerError.NOT_IMPLEMENTED ("Not Implemented\n");
     }
 
     public virtual void add_metadata (DIDLLiteWriter didl_writer,
-                                       string         object_id,
-                                       string         filter,
-                                       string         sort_criteria,
-                                       out uint       update_id) throws Error {
+                                      BrowseArgs    args) throws Error {
+        throw new ServerError.NOT_IMPLEMENTED ("Not Implemented\n");
+    }
+
+    public virtual void add_root_children_metadata
+                                        (DIDLLiteWriter didl_writer,
+                                         BrowseArgs     args) throws Error {
         throw new ServerError.NOT_IMPLEMENTED ("Not Implemented\n");
     }
 
     public override void constructed () {
         this.didl_writer = new DIDLLiteWriter ();
+        this.setup_root_container ();
 
         this.system_update_id = 0;
-
         this.feature_list =
             "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" +
             "<Features xmlns=\"urn:schemas-upnp-org:av:avs\" " +
@@ -84,6 +99,8 @@ public class Rygel.ContentDirectory: Service {
             "xsi:schemaLocation=\"urn:schemas-upnp-org:av:avs" +
             "http://www.upnp.org/schemas/av/avs-v1-20060531.xsd\">" +
             "</Features>";
+        this.search_caps = "";
+        this.sort_caps = "";
 
         this.action_invoked["Browse"] += this.browse_cb;
 
@@ -110,67 +127,25 @@ public class Rygel.ContentDirectory: Service {
     }
 
     /* Browse action implementation */
-    private void browse_cb (ContentDirectory content_dir,
-                            ServiceAction    action) {
-        string object_id, browse_flag;
-        bool browse_metadata;
-        string sort_criteria, filter;
-        uint starting_index, requested_count;
-        uint num_returned, total_matches, update_id;
+    protected virtual void browse_cb (ContentDirectory content_dir,
+                                      ServiceAction    action) {
+        bool metadata;
 
-        /* Handle incoming arguments */
-        action.get ("ObjectID", typeof (string), out object_id,
-                    "BrowseFlag", typeof (string), out browse_flag,
-                    "Filter", typeof (string), out filter,
-                    "StartingIndex", typeof (uint), out starting_index,
-                    "RequestedCount", typeof (uint), out requested_count,
-                    "SortCriteria", typeof (string), out sort_criteria);
-
-        /* BrowseFlag */
-        if (browse_flag != null && browse_flag == "BrowseDirectChildren") {
-            browse_metadata = false;
-        } else if (browse_flag != null && browse_flag == "BrowseMetadata") {
-            browse_metadata = true;
-        } else {
-            action.return_error (402, "Invalid Args");
-
-            return;
-        }
-
-        /* ObjectID */
-        if (object_id == null) {
-            /* Stupid Xbox */
-            action.get ("ContainerID", typeof (string), out object_id);
-            if (object_id == null) {
-                action.return_error (701, "No such object");
-
-                return;
-            }
-        }
+        BrowseArgs args = new BrowseArgs ();
 
         /* Start DIDL-Lite fragment */
         this.didl_writer.start_didl_lite (null, null, true);
 
         try {
-            if (browse_metadata) {
-                this.add_metadata (this.didl_writer,
-                                   object_id,
-                                   filter,
-                                   sort_criteria,
-                                   out update_id);
+            /* Handle incoming arguments */
+            metadata = this.parse_browse_args (action, args);
 
-                num_returned = 1;
-                total_matches = 1;
+            if (metadata) {
+                // BrowseMetadata
+                this.browse_metadata (args);
             } else {
-                this.add_children_metadata (this.didl_writer,
-                                            object_id,
-                                            filter,
-                                            starting_index,
-                                            requested_count,
-                                            sort_criteria,
-                                            out num_returned,
-                                            out total_matches,
-                                            out update_id);
+                // BrowseDirectChildren
+                this.browse_direct_children (args);
             }
 
             /* End DIDL-Lite fragment */
@@ -179,17 +154,8 @@ public class Rygel.ContentDirectory: Service {
             /* Retrieve generated string */
             string didl = this.didl_writer.get_string ();
 
-            if (update_id == uint32.MAX) {
-                update_id = this.system_update_id;
-            }
-
-            /* Set action return arguments */
-            action.set ("Result", typeof (string), didl,
-                        "NumberReturned", typeof (uint), num_returned,
-                        "TotalMatches", typeof (uint), total_matches,
-                        "UpdateID", typeof (uint), update_id);
-
-            action.return ();
+            // Conclude the successful Browse action
+            conclude_browse (action, didl, args);
         } catch (Error error) {
             action.return_error (error.code, error.message);
         }
@@ -209,8 +175,8 @@ public class Rygel.ContentDirectory: Service {
 
     /* Query GetSystemUpdateID */
     private void query_system_update_id (ContentDirectory content_dir,
-                                         string variable,
-                                         ref GLib.Value value) {
+                                         string           variable,
+                                         ref GLib.Value   value) {
         /* Set action return arguments */
         value.init (typeof (uint32));
         value.set_uint (this.system_update_id);
@@ -220,36 +186,36 @@ public class Rygel.ContentDirectory: Service {
     private void get_search_capabilities_cb (ContentDirectory content_dir,
                                              ServiceAction    action) {
         /* Set action return arguments */
-        action.set ("SearchCaps", typeof (string), "");
+        action.set ("SearchCaps", typeof (string), this.search_caps);
 
         action.return ();
     }
 
     /* Query SearchCapabilities */
     private void query_search_capabilities (ContentDirectory content_dir,
-                                            string variable,
-                                            ref GLib.Value value) {
+                                            string           variable,
+                                            ref GLib.Value   value) {
         /* Set action return arguments */
         value.init (typeof (string));
-        value.set_string ("");
+        value.set_string (this.search_caps);
     }
 
     /* action GetSortCapabilities implementation */
     private void get_sort_capabilities_cb (ContentDirectory content_dir,
                                            ServiceAction    action) {
         /* Set action return arguments */
-        action.set ("SortCaps", typeof (string), "");
+        action.set ("SortCaps", typeof (string), this.sort_caps);
 
         action.return ();
     }
 
     /* Query SortCapabilities */
     private void query_sort_capabilities (ContentDirectory content_dir,
-                                          string variable,
-                                          ref GLib.Value value) {
+                                          string           variable,
+                                          ref GLib.Value   value) {
         /* Set action return arguments */
         value.init (typeof (string));
-        value.set_string ("");
+        value.set_string (this.sort_caps);
     }
 
     /* action GetFeatureList implementation */
@@ -263,11 +229,87 @@ public class Rygel.ContentDirectory: Service {
 
     /* Query FeatureList */
     private void query_feature_list (ContentDirectory content_dir,
-                                     string variable,
-                                     ref GLib.Value value) {
+                                     string           variable,
+                                     ref GLib.Value   value) {
         /* Set action return arguments */
         value.init (typeof (string));
         value.set_string (this.feature_list);
+    }
+
+    private void setup_root_container () {
+        string friendly_name = this.root_device.get_friendly_name ();
+        this.root_container = new MediaContainer.root (friendly_name, 0);
+    }
+
+    private void browse_metadata (BrowseArgs args) throws Error {
+        if (args.object_id == this.root_container.id) {
+            this.root_container.serialize (didl_writer);
+            args.update_id = this.system_update_id;
+        } else {
+            this.add_metadata (this.didl_writer, args);
+        }
+
+        args.number_returned = 1;
+        args.total_matches = 1;
+    }
+
+    private void browse_direct_children (BrowseArgs args) throws Error {
+        if (args.object_id == this.root_container.id) {
+            this.add_root_children_metadata (this.didl_writer, args);
+        } else {
+            this.add_children_metadata (this.didl_writer, args);
+        }
+    }
+
+    private bool parse_browse_args (ServiceAction action,
+                                    BrowseArgs args) throws Error {
+        action.get ("ObjectID", typeof (string), out args.object_id,
+                    "BrowseFlag", typeof (string), out args.browse_flag,
+                    "Filter", typeof (string), out args.filter,
+                    "StartingIndex", typeof (uint), out args.index,
+                    "RequestedCount", typeof (uint), out args.requested_count,
+                    "SortCriteria", typeof (string), out args.sort_criteria);
+
+        /* BrowseFlag */
+        bool metadata;
+        if (args.browse_flag != null &&
+            args.browse_flag == "BrowseDirectChildren") {
+            metadata = false;
+        } else if (args.browse_flag != null &&
+                   args.browse_flag == "BrowseMetadata") {
+            metadata = true;
+        } else {
+            throw new ContentDirectoryError.INVALID_ARGS ("Invalid Args");
+        }
+
+        /* ObjectID */
+        if (args.object_id == null) {
+            /* Stupid Xbox */
+            action.get ("ContainerID", typeof (string), out args.object_id);
+        }
+
+        if (args.object_id == null) {
+            // Sorry we can't do anything without ObjectID
+            throw new ContentDirectoryError.NO_SUCH_OBJECT ("No such object");
+        }
+
+        return metadata;
+    }
+
+    private void conclude_browse (ServiceAction action,
+                                  string        didl,
+                                  BrowseArgs    args) {
+        if (args.update_id == uint32.MAX) {
+            args.update_id = this.system_update_id;
+        }
+
+        /* Set action return arguments */
+        action.set ("Result", typeof (string), didl,
+                    "NumberReturned", typeof (uint), args.number_returned,
+                    "TotalMatches", typeof (uint), args.total_matches,
+                    "UpdateID", typeof (uint), args.update_id);
+
+        action.return ();
     }
 }
 

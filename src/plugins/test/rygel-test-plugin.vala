@@ -1,7 +1,9 @@
 /*
- * Copyright (C) 2008 Zeeshan Ali <zeenix@gmail.com>.
+ * Copyright (C) 2008 Zeeshan Ali (Khattak) <zeeshanak@gnome.org>.
+ * Copyright (C) 2008 Nokia Corporation, all rights reserved.
  *
- * Author: Zeeshan Ali <zeenix@gmail.com>
+ * Author: Zeeshan Ali (Khattak) <zeeshanak@gnome.org>
+ *                               <zeeshan.ali@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,16 +24,22 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-using GUPnP;
+using Rygel;
+using Gee;
+using CStuff;
 
-/**
- * Represents a media object (container and item). Subclasses should implement
- * the abstract serialize method.
- */
-public abstract class Rygel.MediaObject {
-    public string id;
-    public string parent_id;
-    public string title;
+[ModuleInit]
+public Plugin load_plugin () {
+    Plugin plugin = new Plugin ("Test");
 
-    public abstract void serialize (DIDLLiteWriter didl_writer) throws Error;
+    // We only implement a ContentDirectory service
+    var resource_info = new ResourceInfo (ContentDirectory.UPNP_ID,
+                                          ContentDirectory.UPNP_TYPE,
+                                          ContentDirectory.DESCRIPTION_PATH,
+                                          typeof (TestContentDir));
+
+    plugin.add_resource (resource_info);
+
+    return plugin;
 }
+

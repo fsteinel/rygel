@@ -31,59 +31,67 @@ using DBus;
  * Represents Tracker music item.
  */
 public class Rygel.TrackerMusicItem : TrackerItem {
-    public TrackerMusicItem (string              id,
-                             string              path,
-                             TrackerContainer    parent) {
-        base (id, path, parent);
-
-        keys = new string[] {"File:Name",
-                             "File:Mime",
-                             "Audio:Title",
-                             "Audio:Artist",
-                             "Audio:TrackNo",
-                             "Audio:Album",
-                             "Audio:ReleaseDate",
-                             "Audio:DateAdded",
-                             "DC:Date"};
+    private enum Metadata {
+        FILE_NAME,
+        MIME,
+        SIZE,
+        TITLE,
+        ARTIST,
+        TRACK_NUM,
+        ALBUM,
+        RELEASE,
+        DATE_ADDED,
+        DATE,
+        LAST_KEY
     }
 
-    public override void serialize (DIDLLiteWriter didl_writer) {
+    public TrackerMusicItem (string              id,
+                             string              path,
+                             TrackerContainer    parent) throws GLib.Error {
+        base (id, path, parent);
+    }
+
+    public override void fetch_metadata () throws GLib.Error {
+        string[] keys = new string[Metadata.LAST_KEY];
+        keys[Metadata.FILE_NAME] = "File:Name";
+        keys[Metadata.MIME] = "File:Mime";
+        keys[Metadata.SIZE] = "File:Size";
+        keys[Metadata.TITLE] = "Video:Title";
+        keys[Metadata.ARTIST] = "Audio:Artist";
+        keys[Metadata.TRACK_NUM] = "Audio:TrackNo";
+        keys[Metadata.ALBUM] = "Audio:Album";
+        keys[Metadata.RELEASE] = "Audio:ReleaseDate";
+        keys[Metadata.DATE_ADDED] = "Audio:DateAdded";
+        keys[Metadata.DATE] = "DC:Date";
         string[] values = null;
 
         /* TODO: make this async */
-        try {
-            values = this.parent.metadata.Get (parent.category, path, keys);
-        } catch (GLib.Error error) {
-            critical ("failed to get metadata for %s: %s\n",
-                      path,
-                      error.message);
+        values = this.parent.metadata.Get (parent.category, path, keys);
 
-            return;
-        }
-
-        if (values[2] != "")
-            this.title = values[2];
+        if (values[Metadata.TITLE] != "")
+            this.title = values[Metadata.TITLE];
         else
             /* If title wasn't provided, use filename instead */
-            this.title = values[0];
+            this.title = values[Metadata.FILE_NAME];
 
-        if (values[4] != "")
-            this.track_number = values[4].to_int ();
+        if (values[Metadata.SIZE] != "")
+            this.res.size = values[Metadata.SIZE].to_int ();
 
-        if (values[8] != "") {
-            this.date = seconds_to_iso8601 (values[8]);
-        } else if (values[6] != "") {
-            this.date = seconds_to_iso8601 (values[6]);
+        if (values[Metadata.TRACK_NUM] != "")
+            this.track_number = values[Metadata.TRACK_NUM].to_int ();
+
+        if (values[Metadata.DATE] != "") {
+            this.date = seconds_to_iso8601 (values[Metadata.DATE]);
+        } else if (values[Metadata.RELEASE] != "") {
+            this.date = seconds_to_iso8601 (values[Metadata.RELEASE]);
         } else {
-            this.date = seconds_to_iso8601 (values[7]);
+            this.date = seconds_to_iso8601 (values[Metadata.DATE_ADDED]);
         }
 
-        this.mime = values[1];
-        this.author = values[3];
-        this.album = values[5];
-        this.uri = this.uri_from_path (path);
-
-        base.serialize (didl_writer);
+        this.res.mime_type = values[Metadata.MIME];
+        this.author = values[Metadata.ARTIST];
+        this.album = values[Metadata.ALBUM];
+        this.res.uri = this.uri_from_path (path);
     }
 }
 

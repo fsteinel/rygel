@@ -31,52 +31,58 @@ using DBus;
  * Represents Tracker video item.
  */
 public class Rygel.TrackerVideoItem : TrackerItem {
-    public TrackerVideoItem (string              id,
-                             string              path,
-                             TrackerContainer    parent) {
-        base (id, path, parent);
-
-        keys = new string[] {"File:Name",
-                             "File:Mime",
-                             "Video:Title",
-                             "Video:Author",
-                             "Video:Width",
-                             "Video:Height",
-                             "DC:Date"};
+    private enum Metadata {
+        FILE_NAME,
+        MIME,
+        SIZE,
+        TITLE,
+        AUTHOR,
+        WIDTH,
+        HEIGHT,
+        DATE,
+        LAST_KEY
     }
 
-    public override void serialize (DIDLLiteWriter didl_writer) {
+    public TrackerVideoItem (string              id,
+                             string              path,
+                             TrackerContainer    parent) throws GLib.Error {
+        base (id, path, parent);
+    }
+
+    public override void fetch_metadata () throws GLib.Error {
+        string[] keys = new string[Metadata.LAST_KEY];
+        keys[Metadata.FILE_NAME] = "File:Name";
+        keys[Metadata.MIME] = "File:Mime";
+        keys[Metadata.SIZE] = "File:Size";
+        keys[Metadata.TITLE] = "Video:Title";
+        keys[Metadata.AUTHOR] = "Video:Author";
+        keys[Metadata.WIDTH] = "Video:Width";
+        keys[Metadata.HEIGHT] = "Video:Height";
+        keys[Metadata.DATE] = "DC:Date";
         string[] values = null;
 
         /* TODO: make this async */
-        try {
-            values = this.parent.metadata.Get (parent.category, path, keys);
-        } catch (GLib.Error error) {
-            critical ("failed to get metadata for %s: %s\n",
-                      path,
-                      error.message);
+        values = this.parent.metadata.Get (parent.category, path, keys);
 
-            return;
-        }
-
-        if (values[2] != "")
-            this.title = values[2];
+        if (values[Metadata.TITLE] != "")
+            this.title = values[Metadata.TITLE];
         else
             /* If title wasn't provided, use filename instead */
-            this.title = values[0];
+            this.title = values[Metadata.FILE_NAME];
 
-        if (values[4] != "")
-            this.width = values[4].to_int ();
+        if (values[Metadata.SIZE] != "")
+            this.res.size = values[Metadata.SIZE].to_int ();
 
-        if (values[5] != "")
-            this.height = values[5].to_int ();
+        if (values[Metadata.WIDTH] != "")
+            this.res.width = values[Metadata.WIDTH].to_int ();
 
-        this.date = this.seconds_to_iso8601 (values[6]);
-        this.mime = values[1];
-        this.author = values[3];
-        this.uri = this.uri_from_path (path);
+        if (values[Metadata.HEIGHT] != "")
+            this.res.height = values[Metadata.HEIGHT].to_int ();
 
-        base.serialize (didl_writer);
+        this.date = this.seconds_to_iso8601 (values[Metadata.DATE]);
+        this.res.mime_type = values[Metadata.MIME];
+        this.author = values[Metadata.AUTHOR];
+        this.res.uri = this.uri_from_path (path);
     }
 }
 

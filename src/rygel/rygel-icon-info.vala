@@ -1,7 +1,8 @@
 /*
- * Copyright (C) 2008 Zeeshan Ali <zeenix@gmail.com>.
+ * Copyright (C) 2008 Nokia Corporation, all rights reserved.
  *
- * Author: Zeeshan Ali <zeenix@gmail.com>
+ * Author: Zeeshan Ali (Khattak) <zeeshanak@gnome.org>
+ *                               <zeeshan.ali@nokia.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,16 +23,28 @@
  * version 2 of the License, or (at your option) any later version.
  */
 
-using GUPnP;
+using Rygel;
 
 /**
- * Represents a media object (container and item). Subclasses should implement
- * the abstract serialize method.
+ * Holds information about an icon.
  */
-public abstract class Rygel.MediaObject {
-    public string id;
-    public string parent_id;
-    public string title;
+public class Rygel.IconInfo {
+    public string mimetype;
+    public uint width;
+    public uint height;
+    public uint depth;
+    public string path;
 
-    public abstract void serialize (DIDLLiteWriter didl_writer) throws Error;
+    public IconInfo (string mimetype,
+                     uint   width,
+                     uint   height,
+                     uint   depth,
+                     string path) {
+        this.mimetype = mimetype;
+        this.width = width;
+        this.height = height;
+        this.depth = depth;
+        this.path = path;
+    }
 }
+

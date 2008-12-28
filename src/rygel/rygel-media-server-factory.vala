@@ -28,6 +28,10 @@ using GUPnP;
 using GConf;
 using CStuff;
 
+public errordomain MediaServerFactoryError {
+    XML_PARSE
+}
+
 /**
  * Factory for MediaServer objects. Give it a plugin and it will create a
  * MediaServer device for that.
@@ -41,31 +45,45 @@ public class Rygel.MediaServerFactory {
     private GConf.Client gconf;
     private GUPnP.Context context;
 
-    public MediaServerFactory () {
+    public MediaServerFactory () throws GLib.Error {
         this.gconf = GConf.Client.get_default ();
 
         /* Set up GUPnP context */
         this.context = create_upnp_context ();
     }
 
-    public MediaServer? create_media_server (Plugin plugin) {
+    public MediaServer create_media_server (Plugin plugin) throws GLib.Error {
         string gconf_path = ROOT_GCONF_PATH + plugin.name + "/";
         string modified_desc = DESC_PREFIX + "-" + plugin.name + ".xml";
-
-        bool enable_xbox;
-        try {
-            enable_xbox = this.gconf.get_bool (gconf_path + "enable-xbox");
-        } catch (GLib.Error error) {
-            warning ("%s", error.message);
-        }
 
         /* We store a modified description.xml in the user's config dir */
         string desc_path = Path.build_filename
                                     (Environment.get_user_config_dir (),
                                      modified_desc);
 
-        string orig_desc_path;
+        /* Create the description xml */
+        Xml.Doc *doc = this.create_desc (plugin, desc_path, gconf_path);
 
+        /* Host our modified file */
+        this.context.host_path (desc_path, "/" + modified_desc);
+
+        return new MediaServer (this.context,
+                                plugin,
+                                doc,
+                                modified_desc);
+    }
+
+    private Xml.Doc * create_desc (Plugin plugin,
+                                   string desc_path,
+                                   string gconf_path) throws GLib.Error {
+        bool enable_xbox = false;
+        try {
+            enable_xbox = this.gconf.get_bool (gconf_path + "enable-xbox");
+        } catch (GLib.Error error) {
+            warning ("%s", error.message);
+        }
+
+        string orig_desc_path;
         if (enable_xbox)
             /* Use Xbox 360 specific description */
             orig_desc_path = Path.build_filename (BuildConfig.DATA_DIR,
@@ -75,8 +93,11 @@ public class Rygel.MediaServerFactory {
                                                   DESC_DOC);
 
         Xml.Doc *doc = Xml.Parser.parse_file (orig_desc_path);
-        if (doc == null)
-            return null;
+        if (doc == null) {
+            string message = "Failed to parse %s".printf (orig_desc_path);
+
+            throw new MediaServerFactoryError.XML_PARSE (message);
+        }
 
         /* Modify description to include Plugin-specific stuff */
         this.prepare_desc_for_plugin (doc, plugin, gconf_path);
@@ -85,36 +106,12 @@ public class Rygel.MediaServerFactory {
             /* Put/Set XboX specific stuff to description */
             add_xbox_specifics (doc);
 
-        /* Save the modified description.xml into the user's config dir.
-         * We do this so that we can host the modified file, and also to
-         * make sure the generated UDN stays the same between sessions. */
-        FileStream f = FileStream.open (desc_path, "w+");
-        int res = -1;
+        save_modified_desc (doc, desc_path);
 
-        if (f != null)
-            res = Xml.Doc.dump (f, doc);
-
-        if (f == null || res == -1) {
-            critical ("Failed to write modified description.xml to %s.\n",
-                      desc_path);
-
-            delete doc;
-
-            return null;
-        }
-
-        /* Host our modified file */
-        this.context.host_path (desc_path, "/" + modified_desc);
-
-        var server = new MediaServer (this.context,
-                                      plugin,
-                                      doc,
-                                      modified_desc);
-
-        return server;
+        return doc;
     }
 
-    private GUPnP.Context? create_upnp_context () {
+    private GUPnP.Context create_upnp_context () throws GLib.Error {
         string host_ip;
         try {
             host_ip = this.gconf.get_string (ROOT_GCONF_PATH + "host-ip");
@@ -133,14 +130,7 @@ public class Rygel.MediaServerFactory {
             port = 0;
         }
 
-        GUPnP.Context context;
-        try {
-            context = new GUPnP.Context (null, host_ip, port);
-        } catch (GLib.Error error) {
-            warning ("Error setting up GUPnP context: %s", error.message);
-
-            return null;
-        }
+        GUPnP.Context context = new GUPnP.Context (null, host_ip, port);
 
         /* Host UPnP dir */
         context.host_path (BuildConfig.DATA_DIR, "");
@@ -150,26 +140,33 @@ public class Rygel.MediaServerFactory {
 
     private string get_str_from_gconf (string key,
                                        string default_value) {
-        string str;
+        string str = null;
 
         try {
             str = this.gconf.get_string (key);
         } catch (GLib.Error error) {
+            warning ("Error getting gconf key '%s': %s." +
+                     " Assuming default value '%s'.",
+                     key,
+                     error.message,
+                     default_value);
+
+            str = default_value;
+        }
+
+        if (str == null) {
+            str = default_value;
+
             try {
-                this.gconf.set_string (key, str);
+                this.gconf.set_string (key, default_value);
             } catch (GLib.Error error) {
                 warning ("Error setting gconf key '%s': %s.",
                         key,
                         error.message);
-
-                str = null;
             }
         }
 
-        if (str != null)
-                return str;
-        else
-                return default_value;
+        return str;
     }
 
     private void add_xbox_specifics (Xml.Doc doc) {
@@ -208,6 +205,9 @@ public class Rygel.MediaServerFactory {
         this.set_friendly_name_and_udn (device_element,
                                         plugin.name,
                                         gconf_path);
+
+        /* Then list each icon */
+        this.add_icons_to_desc (device_element, plugin);
 
         /* Then list each service */
         this.add_services_to_desc (device_element, plugin);
@@ -287,6 +287,63 @@ public class Rygel.MediaServerFactory {
 
         url = plugin_name + "/" + resource_info.type.name () + "/Control";
         service_node->new_child (null, "controlURL", url);
+    }
+
+    private void add_icons_to_desc (Xml.Node *device_element,
+                                    Plugin    plugin) {
+        Xml.Node *icon_list_node = Utils.get_xml_element (device_element,
+                                                          "iconList",
+                                                          null);
+        if (icon_list_node == null) {
+            warning ("Element /root/device/iconList not found.");
+
+            return;
+        }
+
+        foreach (IconInfo icon_info in plugin.icon_infos) {
+            add_icon_to_desc (icon_list_node, icon_info, plugin);
+        }
+    }
+
+    private void add_icon_to_desc (Xml.Node *icon_list_node,
+                                   IconInfo  icon_info,
+                                   Plugin    plugin) {
+        // Create the service node
+        Xml.Node *icon_node = icon_list_node->new_child (null, "icon");
+
+        string width = icon_info.width.to_string ();
+        string height = icon_info.height.to_string ();
+        string depth = icon_info.depth.to_string ();
+
+        icon_node->new_child (null, "mimetype", icon_info.mimetype);
+        icon_node->new_child (null, "width", width);
+        icon_node->new_child (null, "height", height);
+        icon_node->new_child (null, "depth", depth);
+
+        // PLUGIN_NAME-WIDTHxHEIGHTxDEPTH.png
+        string url = plugin.name + "-" +
+                     width + "x" + height + "x" + depth + ".png";
+
+        this.context.host_path (icon_info.path, "/" + url);
+        icon_node->new_child (null, "url", url);
+    }
+
+    private void save_modified_desc (Xml.Doc *doc,
+                                     string   desc_path) throws GLib.Error {
+        FileStream f = FileStream.open (desc_path, "w+");
+        int res = -1;
+
+        if (f != null)
+            res = Xml.Doc.dump (f, doc);
+
+        if (f == null || res == -1) {
+            string message = "Failed to write modified description" +
+                             " to %s.\n".printf (desc_path);
+
+            delete doc;
+
+            throw new IOError.FAILED (message);
+        }
     }
 }
 

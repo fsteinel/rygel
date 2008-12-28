@@ -35,8 +35,16 @@ BUILT_SOURCES = rygel-1.0.vapi \
 		rygel-plugin.c \
 		rygel-plugin-loader.h \
 		rygel-plugin-loader.c \
+                rygel-streamer.c \
+                rygel-streamer.h \
+                rygel-stream.c \
+                rygel-stream.h \
+                rygel-gst-stream.c \
+                rygel-gst-stream.h \
 		rygel-resource-info.h \
 		rygel-resource-info.c \
+		rygel-icon-info.h \
+		rygel-icon-info.c \
 		rygel-connection-manager.h \
 		rygel-connection-manager.c \
 		rygel-media-receiver-registrar.h \
@@ -67,8 +75,16 @@ rygel_SOURCES = rygel-1.0.vapi \
 		rygel-plugin-loader.h \
 		rygel-plugin-loader.c \
 		rygel-plugin-loader.vala \
+                rygel-streamer.c \
+                rygel-streamer.h \
+                rygel-stream.c \
+                rygel-stream.h \
+                rygel-gst-stream.c \
+                rygel-gst-stream.h \
 		rygel-resource-info.h \
 		rygel-resource-info.c \
+		rygel-icon-info.h \
+		rygel-icon-info.c \
 		rygel-connection-manager.h \
 		rygel-connection-manager.c \
 		rygel-media-receiver-registrar.h \
@@ -102,13 +118,17 @@ VAPI_FILES = rygel-1.0.vapi
 rygel-1.0.vapi: rygel-content-directory.vala \
 		rygel-connection-manager.vala \
 		rygel-media-receiver-registrar.vala \
+                rygel-streamer.vala \
+                rygel-stream.vala \
+                rygel-gst-stream.vala \
 		rygel-resource-info.vala \
+		rygel-icon-info.vala \
 		rygel-plugin.vala \
 		rygel-media-object.vala \
 		rygel-media-container.vala \
 		rygel-media-item.vala
 	$(VALAC) -C --library=rygel-1.0 \
-	--pkg gupnp-1.0 --pkg gupnp-av-1.0 --pkg gee-1.0 \
+	--pkg gupnp-1.0 --pkg gupnp-av-1.0 --pkg gee-1.0 --pkg gstreamer-0.10 \
 	$^
 
 CLEANFILES = $(BUILT_SOURCES)
