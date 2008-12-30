@@ -41,6 +41,7 @@ public class Rygel.MediaItem : MediaObject {
     public string author;
     public string album;
     public string date;
+    public ArrayList<IconInfo> albumArtURI;
     public string upnp_class;
 
     public DIDLLiteResource res;
@@ -119,6 +120,13 @@ public class Rygel.MediaItem : MediaObject {
                                     DIDLLiteWriter.NAMESPACE_DC,
                                     null,
                                     this.date);
+        }
+
+        if (this.albumArtURI != null && this.albumArtURI != "") {
+            didl_writer.add_string ("albumArtURI",
+                                    DIDLLiteWriter.NAMESPACE_DC,
+                                    null,
+                                    this.albumArtURI);
         }
 
         /* Add resource data */
